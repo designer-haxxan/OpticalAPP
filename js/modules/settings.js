@@ -32,6 +32,10 @@ export default {
         <div class="col-8"><label class="form-label">Receipt footer</label><input name="footer" class="form-control" value="${esc(s.business.footer)}" ${ro}></div>
         <div class="col-4"><label class="form-label">Currency</label><input name="currency" class="form-control" maxlength="5" value="${esc(s.currency)}" ${ro}></div>
         ${manage ? '<div class="col-12"><button class="btn btn-primary">Save</button></div>' : ''}</form>`)}
+      ${section('Optical store', 'eyeglasses', `<form class="f-optical row g-2">
+        <div class="col-6"><label class="form-label">Usual delivery time (days)</label><input name="deliveryDays" class="form-control" inputmode="numeric" value="${esc(s.optical?.deliveryDays ?? 3)}" ${ro}></div>
+        <div class="col-12"><label class="form-label">Pick-up note on job-order receipts</label><textarea name="orderNote" class="form-control" rows="2" ${ro}>${esc(s.optical?.orderNote || '')}</textarea><div class="form-text">English and Urdu are both supported (Urdu prints as an image on thermal printers).</div></div>
+        ${manage ? '<div class="col-12"><button class="btn btn-primary">Save</button></div>' : ''}</form>`)}
       ${section('Sales, stock & numbering', 'sliders', `<form class="f-sales row g-2">
         <div class="col-12"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="taxEnabled" id="s-tax" ${s.taxEnabled ? 'checked' : ''} ${ro}><label class="form-check-label" for="s-tax">Charge sales tax</label></div></div>
         <div class="col-6"><label class="form-label">Tax rate (%)</label><input name="taxRate" class="form-control" inputmode="decimal" value="${s.taxRate}" ${ro}></div>
@@ -92,6 +96,14 @@ export default {
       if (!v.name.trim()) return UI.toast('Business name is required', 'warning');
       saveSettings({ business: { name: v.name.trim(), address: v.address.trim(), phone: v.phone.trim(), taxNo: v.taxNo.trim(), footer: v.footer.trim() }, currency: v.currency.trim() || 'Rs' });
       UI.toast('Business profile saved');
+    });
+    $el.on('submit', '.f-optical', (e) => {
+      e.preventDefault();
+      const v = Object.fromEntries(new FormData(e.target).entries());
+      const days = parseInt(v.deliveryDays, 10);
+      if (!(days >= 0 && days <= 60)) return UI.toast('Delivery time must be between 0 and 60 days', 'warning');
+      saveSettings({ optical: { deliveryDays: days, orderNote: String(v.orderNote || '').trim() } });
+      UI.toast('Optical settings saved');
     });
     $el.on('submit', '.f-sales', (e) => {
       e.preventDefault();

@@ -169,6 +169,14 @@ export async function saveSale(input) {
       paymentType: paid >= calc.total ? 'paid' : paid > 0 ? 'partial' : 'credit',
       status: 'completed', note: clean(input.note, 500), edited: editing || !!existing?.edited, ...stamp(),
     };
+    // Optical job order (spectacles made to a prescription): kept on the sale; status moves ordered → lab → ready → delivered.
+    if (input.order) {
+      if (!customerId) throw new AppError('Select a customer for a job order, so you can contact them when it is ready.');
+      const prev = existing?.order || null;
+      doc.order = { rx: input.order.rx || null, rxId: input.order.rxId || null, deliveryDate: input.order.deliveryDate || '', labNote: clean(input.order.labNote, 300),
+        ...(prev ? { status: prev.status, newAt: prev.newAt, labAt: prev.labAt, readyAt: prev.readyAt, deliveredAt: prev.deliveredAt } : { status: 'new', newAt: now }) };
+      doc.orderStatus = doc.order.status;
+    }
     await t.put('sales', doc);
     let i = 0;
     for (const l of calc.lines) {
@@ -553,7 +561,7 @@ export async function deleteCategory(id) {
 
 export async function saveProduct(data) {
   Auth.require('product.edit');
-  const name = clean(data.name, 150);
+  const name = clean(data.name, 150) || clean([data.brand, data.model, data.color].filter(Boolean).join(' '), 150);
   if (!name) throw new AppError('Product name is required.');
   const id = data.id || uuid();
   const sku = clean(data.sku, 60); const barcode = clean(data.barcode, 60);
@@ -576,6 +584,8 @@ export async function saveProduct(data) {
     const now = nowISO();
     const trackStock = data.trackStock !== false;
     const p = { ...(old || { createdAt: now, stock: 0 }), id, name, nameLc: lc(name), sku, barcode, categoryId: data.categoryId || '', unit: clean(data.unit, 20) || 'pcs',
+      brand: clean(data.brand, 60), model: clean(data.model, 60), color: clean(data.color, 40), size: clean(data.size, 30),
+      material: clean(data.material, 40), gender: clean(data.gender, 20), details: clean(data.details, 150),
       purchasePrice, salePrice, wholesalePrice, minStock: round3(num(data.minStock)), openingStock: trackStock ? openingStock : 0, trackStock,
       image: data.image === undefined ? (old?.image || '') : data.image, active: data.active === false ? 0 : 1, updatedAt: now };
     const openRef = 'open:' + id;

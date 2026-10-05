@@ -4,13 +4,13 @@ import { CONFIG } from '../config.js';
 export const DB_NAME = `${CONFIG.APP_ID}_pos`;
 // Database name used by older builds (shared with other apps on the same origin). Never modified; only read on import.
 export const LEGACY_DB_NAME = 'saleapp_pos';
-export const DB_VERSION = 1;
+export const DB_VERSION = 2;
 
 // Stores that make up the business data (included in backups).
 export const DATA_STORES = [
   'categories', 'products', 'customers', 'suppliers', 'accounts',
   'sales', 'saleItems', 'purchases', 'purchaseItems', 'saleReturns', 'purchaseReturns',
-  'vouchers', 'entries', 'stockMoves', 'adjustments', 'holds', 'auditLog', 'meta',
+  'vouchers', 'entries', 'stockMoves', 'adjustments', 'holds', 'auditLog', 'meta', 'prescriptions',
 ];
 
 const STORES = {
@@ -20,7 +20,7 @@ const STORES = {
   customers: { indexes: { nameLc: 'nameLc', phone: 'phone' } },
   suppliers: { indexes: { nameLc: 'nameLc', phone: 'phone' } },
   accounts: { indexes: { type: 'type' } },
-  sales: { indexes: { number: ['number', true], date: 'date', customerId: 'customerId' } },
+  sales: { indexes: { number: ['number', true], date: 'date', customerId: 'customerId', orderStatus: 'orderStatus' } },
   saleItems: { indexes: { saleId: 'saleId', productId: 'productId', date: 'date' } },
   purchases: { indexes: { number: ['number', true], date: 'date', supplierId: 'supplierId' } },
   purchaseItems: { indexes: { purchaseId: 'purchaseId', productId: 'productId', date: 'date' } },
@@ -32,6 +32,8 @@ const STORES = {
   adjustments: { indexes: { number: ['number', true], date: 'date' } },
   holds: { indexes: { createdAt: 'createdAt' } },
   auditLog: { indexes: { at: 'at' } },
+  // Optical: eye prescriptions (Rx) kept per customer.
+  prescriptions: { indexes: { customerId: 'customerId', date: 'date' } },
 };
 
 export const SYSTEM_ACCOUNTS = [
@@ -58,8 +60,18 @@ export function upgrade(db, oldVersion, t) {
     const now = new Date().toISOString();
     const acc = t.objectStore('accounts');
     for (const a of SYSTEM_ACCOUNTS) acc.put({ ...a, system: true, active: 1, createdAt: now, updatedAt: now });
-    t.objectStore('meta').put({ key: 'schemaVersion', value: 1 });
+    t.objectStore('meta').put({ key: 'schemaVersion', value: DB_VERSION });
     t.objectStore('meta').put({ key: 'createdAt', value: now });
   }
-  // Future migrations: if (oldVersion < 2) { ... }
+  if (oldVersion >= 1 && oldVersion < 2) {
+    // v2 (optical): prescriptions store + job-order status index on sales.
+    if (!db.objectStoreNames.contains('prescriptions')) {
+      const os = db.createObjectStore('prescriptions', { keyPath: 'id' });
+      os.createIndex('customerId', 'customerId'); os.createIndex('date', 'date');
+    }
+    const sales = t.objectStore('sales');
+    if (!sales.indexNames.contains('orderStatus')) sales.createIndex('orderStatus', 'orderStatus');
+    t.objectStore('meta').put({ key: 'schemaVersion', value: 2 });
+  }
+  // Future migrations: if (oldVersion < 3) { ... }
 }

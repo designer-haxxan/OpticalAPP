@@ -6,21 +6,23 @@ import { esc } from './core/utils.js';
 import { openDB } from './db/idb.js';
 import * as Auth from './services/auth.js';
 import * as Catalog from './services/catalog.js';
+import * as Optical from './services/optical.js';
 
 const $ = window.jQuery;
 
 // Route table: name → [loader, title, permission|null, icon, menu section]
 const ROUTES = {
   dashboard: [() => import('./modules/dashboard.js'), 'Dashboard', null, 'house', 'Main'],
-  pos: [() => import('./modules/pos.js'), 'New Sale', 'sale.create', 'cart-plus', 'Main'],
+  pos: [() => import('./modules/pos.js'), 'New Sale', 'sale.create', 'eyeglasses', 'Main'],
+  orders: [() => import('./modules/orders.js'), 'Job Orders', null, 'clipboard2-pulse', 'Main'],
   sales: [() => import('./modules/documents.js'), 'Sales', null, 'receipt', 'Main'],
   purchase: [() => import('./modules/pos.js'), 'New Purchase', 'purchase.manage', null, null],
   purchases: [() => import('./modules/documents.js'), 'Purchases', 'purchase.manage', 'bag', 'Main'],
   returns: [() => import('./modules/documents.js'), 'Returns', null, 'arrow-return-left', 'Main'],
-  products: [() => import('./modules/products.js'), 'Products', null, 'box-seam', 'Inventory'],
+  products: [() => import('./modules/products.js'), 'Frames & Lenses', null, 'eyeglasses', 'Inventory'],
   stock: [() => import('./modules/stock.js'), 'Stock', null, 'boxes', 'Inventory'],
-  customers: [() => import('./modules/parties.js'), 'Customers', null, 'people', 'Parties'],
-  suppliers: [() => import('./modules/parties.js'), 'Suppliers', 'purchase.manage', 'truck', 'Parties'],
+  customers: [() => import('./modules/parties.js'), 'Customers & Rx', null, 'person-vcard', 'Parties'],
+  suppliers: [() => import('./modules/parties.js'), 'Suppliers & Labs', 'purchase.manage', 'truck', 'Parties'],
   vouchers: [() => import('./modules/vouchers.js'), 'Cash Book & Payments', 'voucher.create', 'cash-coin', 'Accounts'],
   accounts: [() => import('./modules/accounts.js'), 'Accounts', 'account.manage', 'bank', 'Accounts'],
   reports: [() => import('./reports/reports.js'), 'Reports', 'reports.view', 'bar-chart-line', 'Accounts'],
@@ -142,6 +144,7 @@ async function route() {
 // ---------- Auth gate ----------
 async function startApp() {
   await Catalog.load();
+  try { await Optical.seedOptical(); } catch (e) { console.warn('Optical setup skipped:', e); }
   buildMenu();
   showView('app');
   renderConn(navigator.onLine ? 'online' : 'offline');

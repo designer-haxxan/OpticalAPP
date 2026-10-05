@@ -14,6 +14,7 @@ const REQUIRED = {
   products: ['name'], customers: ['name'], suppliers: ['name'], accounts: ['name', 'type'], categories: ['name'],
   sales: ['number', 'date', 'total'], saleItems: ['saleId', 'productId', 'qty'], purchases: ['number', 'date', 'total'], purchaseItems: ['purchaseId', 'productId', 'qty'],
   saleReturns: ['number', 'date', 'saleId', 'items'], purchaseReturns: ['number', 'date', 'purchaseId', 'items'], vouchers: ['number', 'date', 'amount'],
+  prescriptions: ['customerId', 'date'],
   entries: ['txnId', 'accountId', 'date', 'debit', 'credit'], stockMoves: ['productId', 'date', 'qty', 'refId'], adjustments: ['number', 'date', 'items'],
 };
 const DOC_STORES = { sales: ['saleItems', 'saleId'], purchases: ['purchaseItems', 'purchaseId'], saleReturns: null, purchaseReturns: null, vouchers: null, adjustments: null };
@@ -44,7 +45,7 @@ export async function createBackup() {
 export function validateBackup(obj) {
   const errors = []; const warnings = [];
   if (!obj || typeof obj !== 'object') return { ok: false, errors: ['The file is not a valid JSON object.'], warnings };
-  if (obj.format !== FORMAT) errors.push('This file is not a SaleAPP POS backup.');
+  if (obj.format !== FORMAT) errors.push('This file is not an OpticPOS backup.');
   if (!Number.isInteger(obj.backupVersion)) errors.push('Missing backup version.');
   else if (obj.backupVersion > CONFIG.BACKUP_VERSION) errors.push(`This backup was made by a newer app version (backup v${obj.backupVersion}). Update the app first.`);
   if (obj.schemaVersion > CONFIG.SCHEMA_VERSION) errors.push(`Unsupported database schema version ${obj.schemaVersion}.`);
@@ -53,6 +54,7 @@ export function validateBackup(obj) {
   const counts = {};
   for (const store of DATA_STORES) {
     const list = obj.data[store];
+    if (list === undefined && store === 'prescriptions') { counts[store] = 0; continue; } // backups made before the optical upgrade
     if (list === undefined) { warnings.push(`Collection "${store}" is missing (treated as empty).`); counts[store] = 0; continue; }
     if (!Array.isArray(list)) { errors.push(`Collection "${store}" is not a list.`); continue; }
     counts[store] = list.length;
@@ -160,7 +162,7 @@ export async function restore(obj, mode, { includeSettings = true } = {}) {
       for (const m of data.stockMoves) if (useBackup.get(moveParent(m))) await t.put('stockMoves', m);
       for (const i of data.saleItems) if (useBackup.get('sales:' + i.saleId)) await t.put('saleItems', i);
       for (const i of data.purchaseItems) if (useBackup.get('purchases:' + i.purchaseId)) await t.put('purchaseItems', i);
-      for (const s of ['categories', 'holds', 'auditLog']) {
+      for (const s of ['categories', 'holds', 'auditLog', 'prescriptions']) {
         for (const r of data[s]) { const local = await t.get(s, r.id); if (!local || stamp(r) > stamp(local)) await t.put(s, r); }
       }
       for (const m of data.meta) {

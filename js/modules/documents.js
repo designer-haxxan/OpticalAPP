@@ -6,6 +6,8 @@ import { money, dateFilter, bindDateFilter, pager } from '../core/views.js';
 import * as Auth from '../services/auth.js';
 import * as Posting from '../services/posting.js';
 import * as Printer from '../printer/printer.js';
+import * as Optical from '../services/optical.js';
+import { rxTable } from '../optical/rx.js';
 
 const $ = window.jQuery;
 
@@ -16,6 +18,7 @@ const K = {
 
 function statusBadge(d) {
   if (d.status === 'void') return '<span class="badge text-bg-danger">Void</span>';
+  if (d.order && d.orderStatus !== 'delivered') return `<span class="badge text-bg-info"><i class="bi bi-eyeglasses"></i> ${Optical.ORDER_STATUS[d.orderStatus]?.label || 'Order'}</span> ${d.balance > 0.004 ? '<span class="badge text-bg-warning">Due</span>' : ''}`;
   if (d.balance > 0.004) return `<span class="badge text-bg-warning">${d.paid > 0 ? 'Partial' : 'Credit'}</span>`;
   return '';
 }
@@ -89,6 +92,12 @@ async function renderDoc(el, kind, id) {
             <thead><tr><th>Item</th><th class="num">Qty</th><th class="num">Rate</th><th class="num">Disc</th><th class="num">Amount</th></tr></thead>
             <tbody>${items.map((i) => `<tr><td>${esc(i.name)}${i.sku ? `<div class="small text-body-secondary">${esc(i.sku)}</div>` : ''}</td><td class="num">${fmtQty(i.qty)} ${esc(i.unit || '')}</td><td class="num">${fmtNum(i.rate)}</td><td class="num">${i.discount ? fmtNum(i.discount) : ''}</td><td class="num">${fmtNum(i.amount)}</td></tr>`).join('')}</tbody>
           </table></div></div></div>
+        ${d.order ? `<div class="card mb-3 order-detail"><div class="card-body">
+          <div class="d-flex align-items-center gap-2 mb-2"><div class="icon-chip tint-${Optical.ORDER_STATUS[d.orderStatus]?.tint || 'cyan'}"><i class="bi bi-${Optical.ORDER_STATUS[d.orderStatus]?.icon || 'eyeglasses'}"></i></div>
+            <div class="flex-grow-1"><div class="fw-semibold">Job order · ${esc(Optical.ORDER_STATUS[d.orderStatus]?.label || '')}</div><div class="small text-body-secondary">${d.order.deliveryDate ? 'Delivery ' + esc(fmtDate(d.order.deliveryDate)) : 'No delivery date'}</div></div>
+            <a class="btn btn-sm btn-light" href="#/orders">Orders</a></div>
+          ${d.order.rx && Optical.rxHasData(d.order.rx) ? rxTable(d.order.rx) : ''}
+          ${d.order.labNote ? `<div class="small mt-2"><i class="bi bi-chat-left-text me-1"></i>${esc(d.order.labNote)}</div>` : ''}</div></div>` : ''}
         ${returns.length ? `<h2 class="h6">Returns</h2><div class="list-card mb-3">${returns.map((r) => `<a class="list-row" href="#/returns/${kind}/${encodeURIComponent(r.id)}"><div class="main"><div class="title">${esc(r.number)} ${r.status === 'void' ? '<span class="badge text-bg-danger">Void</span>' : ''}</div><div class="sub">${fmtDate(r.date)} · ${r.items.length} item(s)</div></div><div class="end money">${fmtNum(r.total)}</div></a>`).join('')}</div>` : ''}
       </div>
       <div class="col-lg-4">

@@ -8,6 +8,7 @@ import * as Auth from '../services/auth.js';
 import * as Catalog from '../services/catalog.js';
 import * as Posting from '../services/posting.js';
 import * as Backup from '../services/backup.js';
+import * as Optical from '../services/optical.js';
 
 const $ = window.jQuery;
 
@@ -108,7 +109,9 @@ export default {
     this.destroy();
     const $el = $(el);
     const u = Auth.user();
-    const [f, bal, wk] = await Promise.all([todayFigures(), Posting.allBalances(), weekFigures()]);
+    const [f, bal, wk, oc, rxDates] = await Promise.all([todayFigures(), Posting.allBalances(), weekFigures(), Optical.orderCounts(), Optical.latestRxDates()]);
+    const recallCut = new Date(); recallCut.setFullYear(recallCut.getFullYear() - 1);
+    const recallDue = [...rxDates].filter(([cid, d]) => d < localDate(recallCut) && Catalog.party('customers', cid)?.active).length;
     let rec = 0; let pay = 0; let cash = 0;
     for (const [id, b] of bal) {
       if (id.startsWith('C:') && b.balance > 0) rec += b.balance;
@@ -135,6 +138,7 @@ export default {
 
     $el.html(`
       <div class="hero-card">
+        <svg class="hero-glasses" viewBox="0 0 120 64" aria-hidden="true"><use href="#ico-glasses"/></svg>
         <div class="d-flex justify-content-between align-items-start gap-2 mb-3">
           <div><div class="hello">${greet}, ${esc(u.name.split(' ')[0])}</div><div class="date">${new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</div></div>
           <span class="pill"><i class="bi bi-${navigator.onLine ? 'cloud-check' : 'wifi-off'}"></i>${navigator.onLine ? 'Online' : 'Offline'}</span>
@@ -147,7 +151,8 @@ export default {
           <span class="pill"><i class="bi bi-arrow-up-circle"></i>Out ${esc(cur())} ${fmtNum(f.cashOut)}</span>
         </div>
         <div class="d-flex flex-wrap gap-2">
-          ${Auth.can('sale.create') ? '<a class="btn hero-cta" href="#/pos"><i class="bi bi-cart-plus me-1"></i>New sale</a>' : ''}
+          ${Auth.can('sale.create') ? '<a class="btn hero-cta" href="#/pos"><i class="bi bi-eyeglasses me-1"></i>New sale</a>' : ''}
+          <a class="btn btn-outline-light" href="#/orders"><i class="bi bi-clipboard2-pulse me-1"></i>Job orders</a>
           ${Auth.can('purchase.manage') ? '<a class="btn btn-outline-light" href="#/purchase/new"><i class="bi bi-bag-plus me-1"></i>Purchase</a>' : ''}
           ${Auth.can('voucher.create') ? '<a class="btn btn-outline-light d-none d-sm-inline-block" href="#/vouchers"><i class="bi bi-cash-coin me-1"></i>Cash book</a>' : ''}
         </div>
@@ -156,14 +161,23 @@ export default {
       <div class="legacy-hint"></div>
       ${Auth.can('backup.export') && (backupDays === null || backupDays >= 7) ? `<div class="alert alert-warning py-2 small d-flex align-items-center gap-2"><i class="bi bi-shield-exclamation"></i><div class="flex-grow-1">${backupDays === null ? 'No backup has been made on this device yet.' : `Last backup was ${backupDays} days ago.`} Your data only lives on this device.</div><a class="btn btn-sm btn-warning" href="#/backup">Back up</a></div>` : ''}
 
-      <div class="section-title"><h2>Business hub</h2></div>
+      <div class="section-title"><h2>Job orders</h2><a href="#/orders">View all</a></div>
+      <div class="row g-2 stagger job-strip">
+        ${[['new', 'hourglass-split', 'amber', 'Ordered', oc.new, '#/orders/new'], ['lab', 'tools', 'cyan', 'In lab', oc.lab, '#/orders/lab'],
+          ['ready', 'check2-circle', 'green', 'Ready for pickup', oc.ready, '#/orders/ready'], ['late', 'alarm', 'red', oc.overdue ? 'Overdue' : 'Due today', oc.overdue || oc.dueToday, '#/orders']]
+          .map(([k, icon, tint, label, n, href]) => `<div class="col-6 col-lg-3"><a class="job-tile j-${k}" href="${href}"><div class="icon-chip tint-${tint}"><i class="bi bi-${icon}"></i></div>
+            <div class="min-w-0"><div class="jn" data-count="${n}">0</div><div class="jl">${label}</div></div></a></div>`).join('')}
+      </div>
+
+      <div class="section-title"><h2>Store hub</h2></div>
       <div class="row g-2 stagger">
+        ${tile('#/orders', 'clipboard2-pulse', 'cyan', 'Job orders', oc.new + oc.lab + oc.ready ? `${oc.new + oc.lab + oc.ready} open · ${oc.ready} ready` : 'No open orders')}
         ${tile('#/sales', 'receipt', 'indigo', 'Sales', `${f.salesCount} today · ${esc(cur())} ${fmtNum(f.sales)}`)}
         ${tile('#/purchases', 'bag-check', 'violet', 'Purchases', `${f.purchasesCount} today · ${esc(cur())} ${fmtNum(f.purchases)}`, 'purchase.manage')}
-        ${tile('#/products', 'box-seam', 'cyan', 'Products', `${prods.length} active items`)}
+        ${tile('#/products', 'eyeglasses', 'violet', 'Frames & lenses', `${prods.length} active items`)}
         ${tile('#/stock', 'boxes', low.length ? 'red' : 'green', 'Inventory', low.length ? `${low.length} low / out of stock` : 'All stock levels fine')}
-        ${tile('#/customers', 'people', 'pink', 'Customers', `${customers} · due ${esc(cur())} ${fmtNum(rec)}`)}
-        ${tile('#/suppliers', 'truck', 'slate', 'Suppliers', `${suppliers} · payable ${esc(cur())} ${fmtNum(pay)}`, 'purchase.manage')}
+        ${tile('#/customers', 'person-vcard', 'pink', 'Customers & Rx', recallDue ? `${customers} · ${recallDue} due eye test` : `${customers} · due ${esc(cur())} ${fmtNum(rec)}`)}
+        ${tile('#/suppliers', 'truck', 'slate', 'Suppliers & labs', `${suppliers} · payable ${esc(cur())} ${fmtNum(pay)}`, 'purchase.manage')}
         ${tile('#/accounts', 'bank', 'green', 'Accounts', `Cash & bank ${esc(cur())} ${fmtNum(cash)}`, 'account.manage')}
         ${tile('#/vouchers', 'cash-coin', 'amber', 'Cash book', 'Receipts & payments', 'voucher.create')}
         ${tile('#/returns', 'arrow-return-left', 'red', 'Returns', f.saleReturns ? `${esc(cur())} ${fmtNum(f.saleReturns)} today` : 'Sale & purchase returns')}
@@ -190,7 +204,7 @@ export default {
             <tbody>${wk.days.map((d) => `<tr><td>${esc(fmtDate(d.date))}</td><td class="num">${d.count}</td><td class="num">${fmtNum(d.total)}</td></tr>`).join('')}</tbody></table></details>
         </div></div>
         <div class="col-lg-4"><div class="card viz-card h-100">
-          <div class="viz-head"><div><div class="ttl">Top products</div><div class="sub">By sales amount, last 7 days</div></div></div>
+          <div class="viz-head"><div><div class="ttl">Top sellers</div><div class="sub">By sales amount, last 7 days</div></div></div>
           ${wk.top.length ? wk.top.map((p) => `<div class="hbar"><div class="name">${esc(p.name)}</div><div class="amt money">${fmtNum(p.amount)}</div>
             <div class="track"><div class="fill" style="width:${Math.max(3, (p.amount / wk.top[0].amount) * 100)}%"></div></div></div>`).join('') : UI.emptyState('No sales in the last 7 days', 'graph-up')}
         </div></div>

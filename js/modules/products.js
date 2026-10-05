@@ -8,7 +8,8 @@ import * as Posting from '../services/posting.js';
 import * as Scanner from '../scanner/scanner.js';
 
 const $ = window.jQuery;
-const UNITS = ['pcs', 'kg', 'g', 'ltr', 'ml', 'box', 'pack', 'dozen', 'm', 'ft', 'pair', 'set'];
+const UNITS = ['pcs', 'pair', 'box', 'pack', 'set', 'ml', 'bottle', 'dozen'];
+const MATERIALS = ['Metal', 'Acetate', 'TR90', 'Titanium', 'Stainless steel', 'Plastic', 'Rimless', 'Half-rim', 'CR-39', 'Polycarbonate', 'Glass', '1.56 Index', '1.61 Index', '1.67 Index'];
 
 // Internal EAN-13 barcode in the "in-store" 20-29 prefix range.
 function generateBarcode() {
@@ -28,7 +29,18 @@ export async function editProduct(product = null, prefill = {}) {
   return UI.formModal({
     title: product ? 'Edit product' : 'New product', size: 'lg',
     body: `<div class="row g-2">
-      <div class="col-12"><label class="form-label">Product name *</label><input name="name" class="form-control" required maxlength="150" value="${esc(p.name)}"></div>
+      <div class="col-12"><label class="form-label">Product name *</label><input name="name" class="form-control" required maxlength="150" value="${esc(p.name)}" placeholder="e.g. Ray-Ban RB3025 Aviator Gold"><div class="form-text">Leave empty to build the name from brand, model and colour below.</div></div>
+      <div class="col-12"><div class="opt-box">
+        <div class="opt-title"><i class="bi bi-eyeglasses me-1"></i>Frame / lens details</div>
+        <div class="row g-2">
+          <div class="col-6 col-md-4"><label class="form-label">Brand</label><input name="brand" class="form-control" maxlength="60" value="${esc(p.brand)}" placeholder="Ray-Ban, Essilor…"></div>
+          <div class="col-6 col-md-4"><label class="form-label">Model / code</label><input name="model" class="form-control" maxlength="60" value="${esc(p.model)}"></div>
+          <div class="col-6 col-md-4"><label class="form-label">Colour</label><input name="color" class="form-control" maxlength="40" value="${esc(p.color)}"></div>
+          <div class="col-6 col-md-3"><label class="form-label">Size</label><input name="size" class="form-control" maxlength="30" value="${esc(p.size)}" placeholder="52-18-140"></div>
+          <div class="col-6 col-md-3"><label class="form-label">Material / index</label><input name="material" class="form-control" list="mat-list" maxlength="40" value="${esc(p.material)}"><datalist id="mat-list">${MATERIALS.map((m) => `<option value="${m}">`).join('')}</datalist></div>
+          <div class="col-6 col-md-3"><label class="form-label">For</label><select name="gender" class="form-select">${['', 'Unisex', 'Men', 'Women', 'Kids'].map((g) => `<option ${p.gender === g ? 'selected' : ''}>${g}</option>`).join('')}</select></div>
+          <div class="col-6 col-md-3"><label class="form-label">Other details</label><input name="details" class="form-control" maxlength="150" value="${esc(p.details)}" placeholder="Blue-cut, HMC…"></div>
+        </div></div></div>
       <div class="col-6 col-md-4"><label class="form-label">SKU / code</label><input name="sku" class="form-control" value="${esc(p.sku)}"></div>
       <div class="col-6 col-md-4"><label class="form-label">Barcode</label><div class="input-group">
         <input name="barcode" class="form-control" value="${esc(p.barcode)}" inputmode="numeric">
@@ -66,6 +78,8 @@ export async function editProduct(product = null, prefill = {}) {
       $m.find('[name=name]').trigger('focus');
     },
     onSubmit: async (v) => {
+      if (!String(v.name || '').trim()) v.name = [v.brand, v.model, v.color].map((x) => String(x || '').trim()).filter(Boolean).join(' ');
+      if (!v.name) throw new AppError('Enter a product name, or a brand and model.');
       if (v.salePrice === '' && !product) throw new AppError('Enter a sale price.');
       const saved = await Posting.saveProduct({ ...v, id: product?.id, image, active: product ? v.active : true });
       UI.toast(product ? 'Product updated' : 'Product added');
@@ -105,7 +119,7 @@ async function renderList(el) {
   const canEdit = Auth.can('product.edit');
   $el.html(UI.pageHeader('Products', canEdit ? `<button class="btn btn-light btn-sm btn-cats"><i class="bi bi-tags"></i><span class="d-none d-sm-inline"> Categories</span></button><button class="btn btn-primary btn-sm btn-add"><i class="bi bi-plus-lg"></i> Add</button>` : '') + `
     <div class="filters">
-      <div class="input-group flex-grow-2"><input type="search" class="form-control q" placeholder="Search name, SKU, barcode…"><button class="btn btn-outline-secondary btn-scan" aria-label="Scan"><i class="bi bi-upc-scan"></i></button></div>
+      <div class="input-group flex-grow-2"><input type="search" class="form-control q" placeholder="Search name, brand, model, barcode…"><button class="btn btn-outline-secondary btn-scan" aria-label="Scan"><i class="bi bi-upc-scan"></i></button></div>
       <select class="form-select f-cat"><option value="">All categories</option>${UI.options(Catalog.allCategories(), '')}</select>
       <select class="form-select f-status"><option value="active">Active</option><option value="low">Low stock</option><option value="out">Out of stock</option><option value="inactive">Inactive</option><option value="all">All</option></select>
     </div>
@@ -129,7 +143,7 @@ async function renderList(el) {
       return `<button class="list-row" data-id="${esc(p.id)}">
         ${p.image ? `<img class="thumb" src="${p.image}" alt="" loading="lazy">` : UI.avatar(p.name)}
         <div class="main"><div class="title">${esc(p.name)} ${p.active ? '' : '<span class="badge text-bg-secondary">Inactive</span>'}</div>
-          <div class="sub">${esc([p.sku, p.barcode, Catalog.category(p.categoryId)?.name].filter(Boolean).join(' · ') || '—')}</div></div>
+          <div class="sub">${esc([Catalog.optLine(p), p.sku, Catalog.category(p.categoryId)?.name].filter(Boolean).join(' · ') || '—')}</div></div>
         <div class="end"><div class="fw-semibold money">${money(p.salePrice)}</div>
           <div class="sub ${low ? 'text-danger fw-semibold' : ''}">${p.trackStock === false ? 'service' : `${fmtQty(p.stock)} ${esc(p.unit)}`}</div></div></button>`;
     }, 60, UI.emptyState('No products found', 'box-seam', canEdit ? '<button class="btn btn-primary btn-sm mt-3 btn-add">Add product</button>' : ''));

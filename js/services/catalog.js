@@ -12,7 +12,7 @@ function indexProduct(p) {
   if (old?.barcode) byBarcode.delete(lc(old.barcode));
   products.set(p.id, p);
   if (p.barcode) byBarcode.set(lc(p.barcode), p);
-  p._s = lc([p.name, p.sku, p.barcode, categories.get(p.categoryId)?.name].filter(Boolean).join(' '));
+  p._s = lc([p.name, p.brand, p.model, p.color, p.size, p.sku, p.barcode, categories.get(p.categoryId)?.name].filter(Boolean).join(' '));
 }
 
 export async function load() {
@@ -42,6 +42,8 @@ export async function refreshParty(kind, id) {
   if (p) parties[kind].set(id, p); else parties[kind].delete(id);
 }
 
+// One-line frame/lens description shown under product names, e.g. "Ray-Ban · RB3025 · Gold · 52-18".
+export const optLine = (p) => [p.brand, p.model, p.color, p.size].filter(Boolean).join(' · ');
 export const product = (id) => products.get(id);
 export const allProducts = () => [...products.values()];
 export const category = (id) => categories.get(id);

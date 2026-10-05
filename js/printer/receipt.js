@@ -4,6 +4,7 @@ import { getSettings } from '../core/settings.js';
 import { fmtNum, fmtQty, fmtDateTime, fmtDate, esc, localDate } from '../core/utils.js';
 import { EscPos, isPlain } from './escpos.js';
 import * as Raster from './raster.js';
+import { rxRows } from '../optical/rx.js';
 
 const TITLES = { sale: 'SALES RECEIPT', purchase: 'PURCHASE', saleReturn: 'SALE RETURN', purchaseReturn: 'PURCHASE RETURN', receipt: 'PAYMENT RECEIPT', payment: 'PAYMENT VOUCHER', transfer: 'TRANSFER' };
 
@@ -31,6 +32,13 @@ export async function buildReceipt(kind, doc) {
     if (doc.change) m.totals.push(['Change', doc.change]);
     if (doc.balance) m.totals.push(['Balance due', doc.balance, true]);
     m.payment = doc.paid ? doc.paymentAccountName : 'Credit';
+    if (kind === 'sale' && doc.order) {
+      // Optical job order: prescription, delivery date and pick-up note
+      m.title = 'JOB ORDER'; m.info.push(['Delivery', fmtDate(doc.order.deliveryDate)]);
+      if (doc.order.rx) m.rx = rxRows(doc.order.rx);
+      if (doc.order.labNote) m.labNote = doc.order.labNote;
+      m.orderNote = String(s.optical?.orderNote || '').split(/\n+/).map((x) => x.trim()).filter(Boolean);
+    }
   } else if (kind === 'saleReturn' || kind === 'purchaseReturn') {
     m.info.push(['Against', doc.docNo], [kind === 'saleReturn' ? 'Customer' : 'Supplier', doc.partyName || '']);
     m.items = doc.items.map((i) => ({ name: i.name, qty: i.qty, unit: i.unit, rate: i.rate, amount: i.amount }));
@@ -67,10 +75,13 @@ export async function toEscPos(m, width = 58) {
       if (i.discount) p.lr('  Discount', '-' + fmtNum(i.discount));
     });
   }
+  if (m.rx) { p.hr().bold(true).line('PRESCRIPTION').bold(false); m.rx.forEach((r) => p.line(r)); }
+  if (m.labNote) p.wrap('Lab note: ' + m.labNote);
   p.hr();
   m.totals.forEach(([k, v, strong]) => { if (strong) p.bold(true); p.lr(k, `${v < 0 ? '-' : ''}${cur} ${fmtNum(Math.abs(v))}`); if (strong) p.bold(false); });
   if (m.payment) p.lr('Payment', m.payment);
   if (m.note) { p.hr(); p.wrap('Note: ' + m.note); }
+  if (m.orderNote?.length) { p.hr().align('center'); m.orderNote.forEach((l) => p.wrap(l)); }
   p.hr().align('center');
   if (m.footer) p.wrap(m.footer);
   p.feed(3).cut();
@@ -88,8 +99,9 @@ export function toHTML(m, width = 58) {
     <hr><div class="c b">${esc(m.title)}</div>${m.void ? '<div class="c b">*** VOID ***</div>' : ''}
     <table>${m.info.map(([k, v]) => row(esc(k) + ':', t(v))).join('')}</table>
     ${m.items.length ? '<hr><table>' + m.items.map((i) => `<tr><td colspan="2">${t(i.name)}</td></tr>${row(`&nbsp;&nbsp;${fmtQty(i.qty)} ${esc(i.unit || '')} x ${fmtNum(i.rate)}`, fmtNum(i.amount))}${i.discount ? row('&nbsp;&nbsp;Discount', '-' + fmtNum(i.discount)) : ''}`).join('') + '</table>' : ''}
+    ${m.rx ? `<hr><div class="c b">PRESCRIPTION</div><div class="rxpre">${m.rx.map(esc).join('\n')}</div>` : ''}${m.labNote ? `<div>Lab note: ${t(m.labNote)}</div>` : ''}
     <hr><table>${m.totals.map(([k, v, strong]) => row(esc(k), `${v < 0 ? '-' : ''}${cur} ${fmtNum(Math.abs(v))}`, strong ? 'b' : '')).join('')}
     ${m.payment ? row('Payment', t(m.payment)) : ''}</table>
-    ${m.note ? `<hr><div>Note: ${t(m.note)}</div>` : ''}
+    ${m.note ? `<hr><div>Note: ${t(m.note)}</div>` : ''}${m.orderNote?.length ? `<hr>${m.orderNote.map((l) => `<div class="c">${t(l)}</div>`).join('')}` : ''}
     <hr>${m.footer ? `<div class="c">${t(m.footer)}</div>` : ''}</div>`;
 }

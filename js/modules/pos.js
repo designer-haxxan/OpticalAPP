@@ -1,7 +1,7 @@
 // Fast POS screen used for both sales (#/pos) and purchases (#/purchase/new). Edit: #/pos/edit/:id, #/purchase/edit/:id
 import * as idb from '../db/idb.js';
 import * as UI from '../core/ui.js';
-import { esc, fmtNum, fmtQty, uuid, round2, round3, num, debounce, today, AppError } from '../core/utils.js';
+import { esc, fmtDate, fmtNum, fmtQty, uuid, round2, round3, num, debounce, today, AppError } from '../core/utils.js';
 import { getSettings, pref } from '../core/settings.js';
 import { storageKey } from '../config.js';
 import * as Auth from '../services/auth.js';
@@ -10,6 +10,8 @@ import * as Posting from '../services/posting.js';
 import * as Printer from '../printer/printer.js';
 import * as Scanner from '../scanner/scanner.js';
 import { partyPicker } from './parties.js';
+import * as Optical from '../services/optical.js';
+import * as RxUI from '../optical/rx.js';
 
 const $ = window.jQuery;
 let st; let $root; let detachWedge = null; let payAccounts = [];
@@ -19,7 +21,7 @@ const draftKey = () => storageKey('draft.' + st.mode);
 const cur = () => getSettings().currency;
 
 function fresh(mode) {
-  return { mode, id: uuid(), editId: null, date: today(), partyId: null, partyName: '', lines: [], discount: 0, note: '', refNo: '', tendered: null, priceMode: pref.get('priceMode', 'retail') };
+  return { mode, id: uuid(), editId: null, date: today(), partyId: null, partyName: '', lines: [], discount: 0, note: '', refNo: '', tendered: null, order: null, priceMode: pref.get('priceMode', 'retail') };
 }
 function persist() { if (!st.editId) localStorage.setItem(draftKey(), JSON.stringify(st)); }
 function taxRate() {
@@ -55,6 +57,7 @@ function layout() {
       </div>
       <div class="pos-meta">
         <button class="btn btn-light btn-party text-truncate"><i class="bi bi-person me-1"></i><span class="party-name"></span></button>
+        ${sale ? `<button class="btn btn-light flex-grow-0 btn-order" title="Prescription & job order" aria-label="Prescription and job order"><i class="bi bi-eyeglasses"></i></button>` : ''}
         ${sale ? `<button class="btn btn-light flex-grow-0 btn-holds" title="Held sales"><i class="bi bi-pause-circle"></i> <span class="badge text-bg-secondary holds-count"></span></button>` : ''}
         <div class="dropdown flex-grow-0">
           <button class="btn btn-light" data-bs-toggle="dropdown" aria-label="More options"><i class="bi bi-three-dots-vertical"></i></button>
@@ -68,6 +71,7 @@ function layout() {
           </ul>
         </div>
       </div>
+      <div class="pos-order d-none"></div>
       ${st.editId ? `<div class="alert alert-warning rounded-0 m-0 py-1 px-3 small"><i class="bi bi-pencil me-1"></i>Editing ${esc(st.editNumber)}</div>` : ''}
       <div class="pos-lines"></div>
       <div class="pos-footer">
@@ -94,7 +98,7 @@ function renderLines() {
       return `<div class="cart-line" data-i="${i}">
         <div class="info btn-line" role="button" tabindex="0">
           <div class="name">${esc(l.name)}</div>
-          <div class="meta">${fmtNum(l.rate)}${l.discount ? ` · disc ${fmtNum(l.discount)}` : ''}${p && p.trackStock !== false ? ` · <span class="${low ? 'text-danger fw-semibold' : ''}">stock ${fmtQty(p.stock)}</span>` : ''}</div>
+          <div class="meta">${p && Catalog.optLine(p) ? esc(Catalog.optLine(p)) + ' · ' : ''}${fmtNum(l.rate)}${l.discount ? ` · disc ${fmtNum(l.discount)}` : ''}${p && p.trackStock !== false ? ` · <span class="${low ? 'text-danger fw-semibold' : ''}">stock ${fmtQty(p.stock)}</span>` : ''}</div>
         </div>
         <div class="qty-ctl"><button class="btn-dec" aria-label="Decrease">−</button><input class="qty-in" inputmode="decimal" value="${fmtQty(l.qty).replace(/,/g, '')}" aria-label="Quantity"><button class="btn-inc" aria-label="Increase">+</button></div>
         <div class="amt money">${fmtNum(amt)}</div>
@@ -111,7 +115,18 @@ function renderTotals() {
   $root.find('.btn-pay').prop('disabled', !st.lines.length);
   $root.find('.party-name').text(st.partyName || (isSale() ? 'Walk-in Customer' : 'Select supplier'));
   $root.find('.pm-label').text(st.priceMode === 'retail' ? 'wholesale' : 'retail');
+  renderOrderCard();
   persist();
+}
+
+function renderOrderCard() {
+  const $o = $root.find('.pos-order');
+  if (!isSale() || !st.order) { $o.addClass('d-none').empty(); return; }
+  const o = st.order; const d = Optical.daysUntil(o.deliveryDate);
+  $o.removeClass('d-none').html(`<div class="order-chip btn-order" role="button" tabindex="0"><div class="oc-ico"><i class="bi bi-eyeglasses"></i></div>
+    <div class="oc-main"><div class="oc-title">Job order${o.deliveryDate ? ` · deliver ${esc(fmtDate(o.deliveryDate))}${d === 0 ? ' (today)' : d === 1 ? ' (tomorrow)' : ''}` : ''}</div>
+      <div class="oc-sub">${o.rx && Optical.rxHasData(o.rx) ? esc(RxUI.rxLine(o.rx)) : 'No prescription attached'}</div></div>
+    <button class="btn btn-sm btn-light oc-rm" aria-label="Remove job order"><i class="bi bi-x-lg"></i></button></div>`);
 }
 
 async function renderHoldCount() {
@@ -121,6 +136,16 @@ async function renderHoldCount() {
 }
 
 // ---------- browse grid ----------
+const catIcon = (p) => {
+  const c = (Catalog.category(p.categoryId)?.name || '').toLowerCase();
+  if (c.includes('sun')) return 'sunglasses';
+  if (c.includes('contact')) return 'record-circle';
+  if (c.includes('solution')) return 'droplet';
+  if (c.includes('lens')) return 'circle-half';
+  if (c.includes('service')) return 'stars';
+  if (c.includes('case') || c.includes('access')) return 'bag-heart';
+  return 'eyeglasses';
+};
 let browseCat = null;
 function renderGrid() {
   const q = $root.find('.browse-q').val() || '';
@@ -129,8 +154,9 @@ function renderGrid() {
   $root.find('.cat-chips').html(`<span class="chip ${!browseCat ? 'active' : ''}" data-cat="">All</span>` + cats.map((c) => `<span class="chip ${browseCat === c.id ? 'active' : ''}" data-cat="${esc(c.id)}">${esc(c.name)}</span>`).join(''));
   $root.find('.product-grid').html(list.length ? list.map((p) => `
     <button class="product-tile" data-id="${esc(p.id)}">
-      ${p.image ? `<img src="${p.image}" alt="" loading="lazy">` : `<div class="ph tint-${UI.tintFor(p.name)}">${esc(UI.initials(p.name))}</div>`}
+      ${p.image ? `<img src="${p.image}" alt="" loading="lazy">` : `<div class="ph tint-${UI.tintFor(p.name)}"><i class="bi bi-${catIcon(p)}"></i></div>`}
       <div class="n">${esc(p.name)}</div>
+      ${Catalog.optLine(p) ? `<div class="s">${esc(Catalog.optLine(p))}</div>` : ''}
       <div class="p">${fmtNum(priceOf(p))}</div>
       ${p.trackStock !== false ? `<div class="s">Stock: ${fmtQty(p.stock)}</div>` : ''}
     </button>`).join('') : UI.emptyState('No products', 'box'));
@@ -175,7 +201,7 @@ const doSearch = debounce(() => {
   results = Catalog.searchProducts(q, { limit: 25 });
   $root.find('.search-results').removeClass('d-none').html(results.length ? results.map((p, i) => `
     <button class="list-row ${i === 0 ? 'bg-body-secondary' : ''}" data-i="${i}">
-      <div class="main"><div class="title">${esc(p.name)}</div><div class="sub">${esc([p.sku, p.barcode].filter(Boolean).join(' · '))}</div></div>
+      <div class="main"><div class="title">${esc(p.name)}</div><div class="sub">${esc([Catalog.optLine(p), p.sku, p.barcode].filter(Boolean).join(' · '))}</div></div>
       <div class="end"><div class="fw-semibold money">${fmtNum(priceOf(p))}</div>${p.trackStock !== false ? `<div class="sub">stock ${fmtQty(p.stock)}</div>` : ''}</div>
     </button>`).join('') : `<div class="p-3 text-body-secondary small">No products match "${esc(q)}".${Auth.can('product.edit') ? ' <a href="#" class="quick-add-link">Add new product</a>' : ''}</div>`);
 }, 120);
@@ -211,6 +237,53 @@ async function choosePartyFn() {
   renderTotals();
 }
 
+// Spectacle job order: prescription + delivery date + lab note. Needs a customer (to contact when ready).
+async function editOrder() {
+  if (!isSale()) return;
+  if (!st.partyId) {
+    UI.toast('Choose the customer first — their phone number is needed for the job order.', 'info', 3500);
+    await choosePartyFn();
+    if (!st.partyId) return;
+  }
+  const saved = await Optical.prescriptionsFor(st.partyId);
+  const o = st.order || {};
+  const start = o.rx || saved[0] || {};
+  const days = Number(getSettings().optical?.deliveryDays) || 3;
+  const r = await UI.formModal({
+    title: `Job order — ${st.partyName}`, submitLabel: st.order ? 'Update job order' : 'Add job order',
+    body: `${saved.length ? `<div class="mb-2"><label class="form-label">Saved prescriptions</label><select class="form-select rx-load">
+        ${saved.map((x, i) => `<option value="${i}" ${o.rxId ? (o.rxId === x.id ? 'selected' : '') : (!o.rx && i === 0 ? 'selected' : '')}>${esc(fmtDate(x.date))} — ${esc(RxUI.rxLine(x))}</option>`).join('')}<option value="new" ${o.rx && !o.rxId ? 'selected' : ''}>Enter a new prescription…</option></select></div>` : '<div class="alert alert-info py-2 small">No saved prescription for this customer yet. Enter it below — it will be saved to their record.</div>'}
+      ${RxUI.rxFields(start, { showMeta: false })}
+      <div class="row g-2 mt-1">
+        <div class="col-6"><label class="form-label">Delivery date</label><input name="deliveryDate" type="date" class="form-control" value="${esc(o.deliveryDate || Optical.addDays(days))}" min="${today()}"></div>
+        <div class="col-6"><label class="form-label">Quick pick</label><div class="btn-group w-100 quick-days">${[1, 3, 7].map((n) => `<button type="button" class="btn btn-outline-secondary btn-sm" data-d="${n}">${n === 1 ? 'Tomorrow' : n + ' days'}</button>`).join('')}</div></div>
+        <div class="col-12"><label class="form-label">Lab / fitting note</label><input name="labNote" class="form-control" maxlength="300" placeholder="e.g. Blue-cut HMC, edge polish, fit in customer's own frame" value="${esc(o.labNote || '')}"></div>
+        <div class="col-12"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="saveRx" id="o-save" checked><label class="form-check-label" for="o-save">Save this prescription to the customer's record</label></div></div>
+        ${st.order ? '<div class="col-12"><button type="button" class="btn btn-outline-danger w-100 btn-drop-order"><i class="bi bi-trash me-1"></i>Remove job order from this sale</button></div>' : ''}
+      </div>`,
+    onShown: ($m) => {
+      RxUI.bindRxFields($m);
+      $m.on('change', '.rx-load', function () { RxUI.fillRxFields($m, this.value === 'new' ? null : saved[+this.value]); });
+      $m.on('click', '.quick-days [data-d]', function () { $m.find('[name=deliveryDate]').val(Optical.addDays(+this.dataset.d)); });
+      $m.find('.btn-drop-order').on('click', () => { st.order = null; renderTotals(); $m.find('[data-bs-dismiss=modal]').first().trigger('click'); });
+    },
+    onSubmit: async (v) => {
+      if (!v.deliveryDate) throw new AppError('Choose a delivery date.');
+      const raw = RxUI.readRx(v);
+      let rx = null; let rxId = null;
+      if (Optical.rxHasData(raw)) {
+        const cand = { od: Optical.normalizeEye(raw.od), os: Optical.normalizeEye(raw.os), pd: raw.pd, pdNear: raw.pdNear };
+        const match = saved.find((x) => Optical.sameRx(x, cand));
+        if (match) { rx = match; rxId = match.id; }
+        else if (v.saveRx) { rx = await Optical.savePrescription({ ...cand, customerId: st.partyId, date: today() }); rxId = rx.id; }
+        else rx = { ...cand, date: today() };
+      }
+      return { rx, rxId, deliveryDate: v.deliveryDate, labNote: v.labNote };
+    },
+  });
+  if (r) { st.order = r; renderTotals(); }
+}
+
 async function loadPayAccounts() {
   payAccounts = (await idb.getAll('accounts')).filter((a) => ['cash', 'bank'].includes(a.type) && a.active).sort((a, b) => (a.id === 'cash' ? -1 : b.id === 'cash' ? 1 : a.name.localeCompare(b.name)));
 }
@@ -234,7 +307,8 @@ async function checkout() {
         <div class="col-6"><label class="form-label">Pay via</label><select name="account" class="form-select">${UI.options(payAccounts, st.payAccount || lastAcc)}</select></div>
       </div>
       <div class="small text-body-secondary co-breakdown mb-2"></div>
-      <label class="form-label">${sale ? 'Amount received' : 'Amount paid'}</label>
+      ${sale && st.order ? `<div class="alert alert-info py-2 small mb-2"><i class="bi bi-eyeglasses me-1"></i>Job order — deliver <b>${esc(fmtDate(st.order.deliveryDate))}</b>. Enter the advance received; the rest stays as balance due.</div>` : ''}
+      <label class="form-label">${sale ? (st.order ? 'Advance / amount received' : 'Amount received') : 'Amount paid'}</label>
       <input name="tendered" class="form-control form-control-lg mb-2 money" inputmode="decimal" placeholder="0">
       <div class="d-flex flex-wrap gap-2 pay-quick mb-2"></div>
       <div class="alert py-2 mb-2 co-result"></div>
@@ -269,6 +343,7 @@ async function checkout() {
     $m.find('.co-result').attr('class', `alert alert-${cls} py-2 mb-2 co-result`).html(msg);
     $m.find('.co-complete').prop('disabled', cls === 'danger');
     const quick = new Set([c.total]);
+    if (sale && st.order && c.total > 1) quick.add(Math.round(c.total / 2));
     if (sale) [10, 50, 100, 500, 1000, 5000].forEach((u) => { const v = Math.ceil(c.total / u) * u; if (v > c.total && quick.size < 5) quick.add(v); });
     $m.find('.pay-quick').html([...quick].map((v, i) => `<button type="button" class="btn btn-outline-primary" data-v="${v}">${i === 0 ? 'Exact' : fmtNum(v)}</button>`).join('')
       + (st.partyId ? `<button type="button" class="btn btn-outline-secondary" data-v="0">${sale ? 'Credit' : 'Unpaid'}</button>` : ''));
@@ -311,6 +386,7 @@ async function checkout() {
         id: st.id, editId: st.editId, date: st.date, items: st.lines, discount: st.discount, taxRate: taxRate(),
         tendered: num($m.find('[name=tendered]').val()), paymentAccountId: account, note: st.note, refNo: st.refNo,
         customerId: sale ? st.partyId : undefined, supplierId: sale ? undefined : st.partyId,
+        order: sale ? st.order : undefined,
       };
       const { doc, duplicate } = sale ? await Posting.saveSale(input) : await Posting.savePurchase(input);
       const doPrint = sale && $m.find('#co-print').prop('checked');
@@ -339,9 +415,10 @@ function afterSave(doc) {
     body: `<div class="text-center"><i class="bi bi-check-circle-fill text-success display-5"></i>
       <div class="h5 mt-2 mb-0">${esc(doc.number)}</div><div class="text-body-secondary">${cur()} ${fmtNum(doc.total)}</div>
       ${doc.change ? `<div class="alert alert-success mt-3 mb-0 py-2 fs-5">Change: <b>${cur()} ${fmtNum(doc.change)}</b></div>` : ''}
-      ${doc.balance ? `<div class="alert alert-warning mt-3 mb-0 py-2">Balance due: <b>${cur()} ${fmtNum(doc.balance)}</b></div>` : ''}</div>`,
+      ${doc.balance ? `<div class="alert alert-warning mt-3 mb-0 py-2">Balance due: <b>${cur()} ${fmtNum(doc.balance)}</b></div>` : ''}
+      ${doc.order ? `<div class="alert alert-info mt-3 mb-0 py-2"><i class="bi bi-eyeglasses me-1"></i>Job order created — delivery <b>${esc(fmtDate(doc.order.deliveryDate))}</b></div>` : ''}</div>`,
     footer: `<button class="btn btn-outline-secondary btn-print"><i class="bi bi-printer me-1"></i>Print</button>
-      <a class="btn btn-outline-secondary" href="#/${sale ? 'sales' : 'purchases'}/${doc.id}"><i class="bi bi-eye me-1"></i>View</a>
+      ${doc.order ? '<a class="btn btn-outline-secondary" href="#/orders"><i class="bi bi-clipboard2-pulse me-1"></i>Orders</a>' : `<a class="btn btn-outline-secondary" href="#/${sale ? 'sales' : 'purchases'}/${doc.id}"><i class="bi bi-eye me-1"></i>View</a>`}
       <button class="btn btn-primary flex-grow-1" data-bs-dismiss="modal">New ${sale ? 'sale' : 'purchase'}</button>`,
   });
   m.$el.find('.btn-print').on('click', () => Printer.printDocument(sale ? 'sale' : 'purchase', doc));
@@ -391,6 +468,7 @@ export default {
       const items = (await idb.getAllByIndex(mode === 'sale' ? 'saleItems' : 'purchaseItems', mode === 'sale' ? 'saleId' : 'purchaseId', doc.id)).sort((a, b) => a.line - b.line);
       st = { ...fresh(mode), id: doc.id, editId: doc.id, editNumber: doc.number, date: doc.date, partyId: doc.customerId || doc.supplierId || null,
         partyName: doc.customerId ? doc.customerName : doc.supplierId ? doc.supplierName : '', discount: doc.discount, note: doc.note || '', refNo: doc.refNo || '',
+        order: mode === 'sale' && doc.order ? { rx: doc.order.rx, rxId: doc.order.rxId, deliveryDate: doc.order.deliveryDate, labNote: doc.order.labNote } : null,
         tendered: mode === 'sale' ? doc.tendered : doc.paid, taxRate: doc.taxRate || 0, payAccount: doc.paymentAccountId,
         lines: items.map((i) => ({ productId: i.productId, name: i.name, unit: i.unit, qty: i.qty, rate: i.rate, discount: i.discount })) };
       setTitle(`Edit ${doc.number}`);
@@ -438,6 +516,8 @@ export default {
     $root.on('click keydown', '.btn-line', function (e) { if (e.type === 'keydown' && e.key !== 'Enter') return; editLine(+$(this).closest('.cart-line').data('i')); });
     $root.on('click', '.btn-pay', checkout);
     $root.on('click', '.btn-party', choosePartyFn);
+    $root.on('click', '.btn-order', (e) => { if ($(e.target).closest('.oc-rm').length) return; editOrder(); });
+    $root.on('click', '.oc-rm', (e) => { e.stopPropagation(); st.order = null; renderTotals(); });
     $root.on('click', '.btn-clear', async () => {
       if (st.editId) { if (await UI.confirmDialog('Discard changes to this document?')) history.back(); return; }
       if (st.lines.length && !await UI.confirmDialog('Clear all items from the cart?', { okLabel: 'Clear', okClass: 'btn-danger' })) return;

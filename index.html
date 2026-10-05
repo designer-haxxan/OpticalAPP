@@ -3,27 +3,53 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="description" content="Offline-first point of sale with sales, purchases, stock, accounts and reports.">
-  <meta name="theme-color" content="#4f46e5">
+  <meta name="description" content="OpticPOS — offline-first point of sale for optical stores: prescriptions, frames, lenses, lab job orders, stock and accounts.">
+  <meta name="theme-color" content="#0f766e">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' https://cdn.jsdelivr.net; img-src 'self' data: blob:; media-src 'self' blob: mediastream:; connect-src 'self' https://eposwala.com https://cdn.jsdelivr.net; worker-src 'self'; manifest-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="SaleAPP POS">
+  <meta name="apple-mobile-web-app-title" content="OpticPOS">
   <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource-variable/inter@5.1.0/index.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource-variable/plus-jakarta-sans@5.1.0/index.css">
   <link rel="stylesheet" href="css/app.css">
-  <title>SaleAPP POS</title>
+  <title>OpticPOS</title>
 </head>
 <body>
+  <!-- Shared glasses mark (used for the logo, dashboard art and menu) -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+    <symbol id="ico-glasses" viewBox="0 0 120 64">
+      <g fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="7" y="14" width="46" height="36" rx="17" fill="currentColor" fill-opacity=".16"/>
+        <rect x="67" y="14" width="46" height="36" rx="17" fill="currentColor" fill-opacity=".16"/>
+        <path d="M53 29 Q60 22 67 29"/>
+        <path d="M8 24 L2 17"/><path d="M112 24 L118 17"/>
+      </g>
+      <g fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" opacity=".75">
+        <path d="M17 28 q3-6 10-7"/><path d="M77 28 q3-6 10-7"/>
+      </g>
+    </symbol>
+  </svg>
+
   <!-- Splash / loading screen -->
   <div id="splash">
-    <div class="splash-logo"><img src="icons/icon-192.png" alt=""></div>
-    <div class="splash-name mt-3">SaleAPP POS</div>
+    <div class="splash-logo">
+      <svg viewBox="0 0 120 64" class="splash-glasses" aria-hidden="true">
+        <g fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+          <rect class="draw" pathLength="1" x="7" y="14" width="46" height="36" rx="17"/>
+          <rect class="draw d2" pathLength="1" x="67" y="14" width="46" height="36" rx="17"/>
+          <path class="draw d3" pathLength="1" d="M53 29 Q60 22 67 29"/>
+          <path class="draw d3" pathLength="1" d="M8 24 L2 17"/><path class="draw d3" pathLength="1" d="M112 24 L118 17"/>
+        </g>
+        <g class="splash-glint"><path d="M16 29 q3-7 11-8" stroke="#fff" stroke-width="3" stroke-linecap="round" fill="none"/><path d="M76 29 q3-7 11-8" stroke="#fff" stroke-width="3" stroke-linecap="round" fill="none"/></g>
+      </svg>
+    </div>
+    <div class="splash-name mt-3">OpticPOS</div>
+    <div class="splash-sub">Optical store manager</div>
     <div class="splash-bar" role="status"><span class="visually-hidden">Loading</span></div>
     <div id="splash-error" class="text-danger small mt-3 px-4 text-center"></div>
   </div>
@@ -31,61 +57,79 @@
   <!-- Login -->
   <div id="view-login" class="d-none">
     <div class="auth">
-      <div class="auth-bg" aria-hidden="true"><span class="blob b1"></span><span class="blob b2"></span><span class="blob b3"></span><div class="grid-lines"></div></div>
+      <div class="auth-bg" aria-hidden="true"><span class="blob b1"></span><span class="blob b2"></span><span class="blob b3"></span><span class="ring r1"></span><span class="ring r2"></span><div class="grid-lines"></div></div>
       <div class="auth-inner">
         <section class="auth-hero">
           <div class="brand-row">
-            <div class="brand-mark"><img src="icons/icon-192.png" alt=""></div>
-            <div><div class="name">SaleAPP POS</div><div class="tag">Point of Sale · Inventory · Accounts</div></div>
+            <div class="brand-mark"><svg viewBox="0 0 120 64" class="brand-glasses" aria-hidden="true"><use href="#ico-glasses"/></svg></div>
+            <div><div class="name">OpticPOS</div><div class="tag">Optical store manager · Pakistan</div></div>
           </div>
-          <h1>Run your whole business <span class="grad">from one app.</span></h1>
-          <p class="lead-sm">Sell, buy, track stock and keep your accounts — for any shop, wholesaler or distributor. Works even without internet.</p>
+          <h1>Your optical store, <span class="grad">from eye test to delivery.</span></h1>
+          <p class="lead-sm">Prescriptions, frames, lenses, lab job orders, stock and accounts — all in one app. Works even without internet.</p>
           <ul class="feature-chips">
+            <li><i class="bi bi-eye"></i>Prescriptions</li>
+            <li><i class="bi bi-clipboard2-pulse"></i>Job orders</li>
+            <li><i class="bi bi-whatsapp"></i>WhatsApp alerts</li>
+            <li><i class="bi bi-eyeglasses"></i>Frames &amp; lenses</li>
             <li><i class="bi bi-wifi-off"></i>Works offline</li>
-            <li><i class="bi bi-box-seam"></i>Inventory</li>
-            <li><i class="bi bi-journal-check"></i>Accounts &amp; ledgers</li>
-            <li><i class="bi bi-upc-scan"></i>Barcode</li>
-            <li><i class="bi bi-printer"></i>Bluetooth receipts</li>
             <li><i class="bi bi-translate"></i><span class="ur-chip">اردو رسید</span></li>
           </ul>
           <div class="hero-art" aria-hidden="true">
-            <svg viewBox="0 0 520 330" xmlns="http://www.w3.org/2000/svg">
+            <svg viewBox="0 0 520 340" xmlns="http://www.w3.org/2000/svg">
               <defs>
-                <linearGradient id="hg1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffffff" stop-opacity=".22"/><stop offset="1" stop-color="#ffffff" stop-opacity=".06"/></linearGradient>
-                <linearGradient id="hg2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#a5b4fc"/><stop offset="1" stop-color="#6366f1"/></linearGradient>
-                <linearGradient id="hg3" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f0abfc"/><stop offset="1" stop-color="#c026d3"/></linearGradient>
+                <linearGradient id="lens" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5eead4" stop-opacity=".55"/><stop offset="1" stop-color="#38bdf8" stop-opacity=".28"/></linearGradient>
+                <linearGradient id="frameg" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#bae6fd"/></linearGradient>
+                <linearGradient id="glare" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".85"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+                <clipPath id="clipL"><rect x="7" y="14" width="46" height="36" rx="17"/></clipPath>
+                <clipPath id="clipR"><rect x="67" y="14" width="46" height="36" rx="17"/></clipPath>
               </defs>
+              <!-- eye chart card -->
               <g class="float-a">
-                <rect x="40" y="30" width="330" height="220" rx="22" fill="url(#hg1)" stroke="rgba(255,255,255,.25)"/>
-                <circle cx="66" cy="54" r="5" fill="#f87171"/><circle cx="82" cy="54" r="5" fill="#fbbf24"/><circle cx="98" cy="54" r="5" fill="#34d399"/>
-                <rect x="64" y="78" width="120" height="12" rx="6" fill="rgba(255,255,255,.55)"/>
-                <rect x="64" y="98" width="80" height="22" rx="8" fill="#fff"/>
-                <rect class="bar" x="70"  y="170" width="26" height="54"  rx="6" fill="url(#hg2)" style="animation-delay:.1s"/>
-                <rect class="bar" x="110" y="150" width="26" height="74"  rx="6" fill="url(#hg2)" style="animation-delay:.2s"/>
-                <rect class="bar" x="150" y="180" width="26" height="44"  rx="6" fill="url(#hg2)" style="animation-delay:.3s"/>
-                <rect class="bar" x="190" y="130" width="26" height="94"  rx="6" fill="url(#hg2)" style="animation-delay:.4s"/>
-                <rect class="bar" x="230" y="145" width="26" height="79"  rx="6" fill="url(#hg2)" style="animation-delay:.5s"/>
-                <rect class="bar" x="270" y="110" width="26" height="114" rx="6" fill="url(#hg3)" style="animation-delay:.6s"/>
-                <rect class="bar" x="310" y="125" width="26" height="99"  rx="6" fill="url(#hg2)" style="animation-delay:.7s"/>
+                <rect x="14" y="26" width="214" height="286" rx="26" fill="rgba(255,255,255,.1)" stroke="rgba(255,255,255,.28)"/>
+                <g class="chart" fill="#fff" font-family="Plus Jakarta Sans Variable, Arial, sans-serif" font-weight="800" text-anchor="middle">
+                  <text x="121" y="108" font-size="64" class="fz f1">E</text>
+                  <text x="121" y="152" font-size="38" class="fz f2" letter-spacing="14">F P</text>
+                  <text x="121" y="188" font-size="28" class="fz f3" letter-spacing="12">T O Z</text>
+                  <text x="121" y="218" font-size="21" class="fz f4" letter-spacing="10">L P E D</text>
+                  <text x="121" y="243" font-size="16" class="fz f5" letter-spacing="8">P E C F D</text>
+                  <text x="121" y="265" font-size="12" class="fz f6" letter-spacing="6">E D F C Z P</text>
+                  <text x="121" y="285" font-size="9" class="fz f7" letter-spacing="5" opacity=".7">F E L O P Z D</text>
+                </g>
               </g>
-              <g class="float-b">
-                <path d="M392 70 h96 a10 10 0 0 1 10 10 v170 l-12 -8 l-12 8 l-12 -8 l-12 8 l-12 -8 l-12 8 l-12 -8 l-12 8 l-12 -8 V80 a10 10 0 0 1 10 -10z" fill="#fff"/>
-                <rect x="410" y="92" width="64" height="9" rx="4.5" fill="#6366f1"/>
-                <rect x="404" y="114" width="76" height="6" rx="3" fill="#e5e7eb"/><rect x="404" y="128" width="58" height="6" rx="3" fill="#e5e7eb"/>
-                <rect x="404" y="142" width="70" height="6" rx="3" fill="#e5e7eb"/><rect x="404" y="156" width="48" height="6" rx="3" fill="#e5e7eb"/>
-                <rect x="404" y="178" width="76" height="2" fill="#c7d2fe"/>
-                <rect x="404" y="190" width="40" height="10" rx="5" fill="#111827"/><rect x="452" y="190" width="28" height="10" rx="5" fill="#16a34a"/>
-                <g transform="translate(410 208)"><rect width="2" height="18" fill="#111827"/><rect x="5" width="1" height="18" fill="#111827"/><rect x="9" width="3" height="18" fill="#111827"/><rect x="15" width="1" height="18" fill="#111827"/><rect x="19" width="2" height="18" fill="#111827"/><rect x="24" width="1" height="18" fill="#111827"/><rect x="28" width="3" height="18" fill="#111827"/><rect x="34" width="2" height="18" fill="#111827"/><rect x="39" width="1" height="18" fill="#111827"/><rect x="43" width="3" height="18" fill="#111827"/><rect x="49" width="2" height="18" fill="#111827"/><rect x="54" width="1" height="18" fill="#111827"/><rect x="58" width="3" height="18" fill="#111827"/></g>
+              <!-- glasses -->
+              <g class="float-b"><g transform="translate(196 136) scale(2.62)">
+                <g fill="none" stroke="url(#frameg)" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="7" y="14" width="46" height="36" rx="17" fill="url(#lens)"/>
+                  <rect x="67" y="14" width="46" height="36" rx="17" fill="url(#lens)"/>
+                  <path d="M53 29 Q60 22 67 29"/><path d="M8 24 L2 17"/><path d="M112 24 L118 17"/>
+                </g>
+                <g clip-path="url(#clipL)"><rect class="sweep" x="-30" y="8" width="26" height="50" fill="url(#glare)" transform="skewX(-18)"/></g>
+                <g clip-path="url(#clipR)"><rect class="sweep s2" x="30" y="8" width="26" height="50" fill="url(#glare)" transform="skewX(-18)"/></g>
+                <g fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" opacity=".8"><path d="M16 28 q3-6 10-7"/><path d="M76 28 q3-6 10-7"/></g>
+              </g></g>
+              <!-- Rx card -->
+              <g class="float-a" style="animation-delay:-1.5s">
+                <rect x="318" y="30" width="188" height="86" rx="18" fill="#fff"/>
+                <rect x="332" y="44" width="30" height="20" rx="8" fill="#0f766e"/><text x="347" y="59" text-anchor="middle" font-size="13" font-weight="800" fill="#fff" font-family="Arial,sans-serif">Rx</text>
+                <rect x="372" y="48" width="104" height="8" rx="4" fill="#cbd5e1"/>
+                <text x="332" y="86" font-size="13" font-weight="700" fill="#0f172a" font-family="Arial,sans-serif">R  -2.00  -0.50  180</text>
+                <text x="332" y="104" font-size="13" font-weight="700" fill="#0f172a" font-family="Arial,sans-serif">L  -1.75  -0.25  170</text>
               </g>
-              <g class="float-b"><circle cx="34" cy="272" r="26" fill="#fbbf24"/><circle cx="34" cy="272" r="18" fill="none" stroke="#fde68a" stroke-width="3"/><text x="34" y="279" text-anchor="middle" font-size="18" font-weight="800" fill="#92400e">Rs</text></g>
-              <g class="float-a"><rect x="300" y="262" width="62" height="50" rx="8" fill="#22d3ee"/><path d="M300 278 h62" stroke="#0e7490" stroke-width="3"/><rect x="322" y="262" width="18" height="16" fill="#67e8f9"/></g>
+              <!-- ready chip -->
+              <g class="float-b" style="animation-delay:-3s">
+                <rect x="352" y="284" width="152" height="40" rx="20" fill="#22c55e"/>
+                <circle cx="376" cy="304" r="10" fill="#fff"/><path d="M371 304 l4 4 l7 -8" stroke="#16a34a" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                <text x="394" y="309" font-size="14" font-weight="800" fill="#fff" font-family="Arial,sans-serif">Order ready</text>
+              </g>
+              <!-- sparkles -->
+              <g fill="#fff"><path class="spark" d="M268 20 l4 12 l12 4 l-12 4 l-4 12 l-4 -12 l-12 -4 l12 -4z"/><path class="spark s2" d="M300 250 l3 8 l8 3 l-8 3 l-3 8 l-3 -8 l-8 -3 l8 -3z"/><path class="spark s3" d="M500 140 l3 8 l8 3 l-8 3 l-3 8 l-3 -8 l-8 -3 l8 -3z"/></g>
             </svg>
           </div>
         </section>
 
         <section class="auth-card" aria-labelledby="login-title">
           <h2 id="login-title">Welcome back</h2>
-          <div class="sub">Sign in to your shop to continue</div>
+          <div class="sub">Sign in to your optical store to continue</div>
           <div id="login-notice" class="alert alert-warning small d-none"></div>
           <form id="login-form" novalidate>
             <div class="field">
@@ -112,7 +156,7 @@
   <!-- Application -->
   <div id="view-app" class="d-none">
     <aside id="sidebar" class="d-none d-lg-flex flex-column">
-      <div class="sidebar-brand"><div class="logo"><img src="icons/icon-192.png" alt=""></div> <span id="brand-name">SaleAPP POS</span></div>
+      <div class="sidebar-brand"><div class="logo"><svg viewBox="0 0 120 64" aria-hidden="true"><use href="#ico-glasses"/></svg></div> <span id="brand-name">OpticPOS</span></div>
       <nav class="nav flex-column flex-grow-1 overflow-auto nav-menu" aria-label="Main"></nav>
     </aside>
     <div class="app-main">
@@ -135,16 +179,16 @@
     </div>
     <nav id="bottom-nav" class="d-lg-none" aria-label="Quick navigation">
       <a href="#/dashboard" data-route="dashboard"><i class="bi bi-house"></i><span>Home</span></a>
-      <a href="#/sales" data-route="sales"><i class="bi bi-receipt"></i><span>Sales</span></a>
-      <a href="#/pos" data-route="pos" class="nav-sell"><i class="bi bi-cart-plus-fill"></i><span>Sell</span></a>
-      <a href="#/products" data-route="products"><i class="bi bi-box-seam"></i><span>Products</span></a>
+      <a href="#/orders" data-route="orders"><i class="bi bi-clipboard2-pulse"></i><span>Orders</span></a>
+      <a href="#/pos" data-route="pos" class="nav-sell"><i class="bi bi-eyeglasses"></i><span>Sell</span></a>
+      <a href="#/customers" data-route="customers"><i class="bi bi-person-vcard"></i><span>Customers</span></a>
       <a href="#" data-bs-toggle="offcanvas" data-bs-target="#menu-offcanvas"><i class="bi bi-grid"></i><span>More</span></a>
     </nav>
   </div>
 
   <div class="offcanvas offcanvas-start" tabindex="-1" id="menu-offcanvas" aria-labelledby="menu-title">
     <div class="offcanvas-header">
-      <h5 class="offcanvas-title" id="menu-title">Menu</h5>
+      <h5 class="offcanvas-title d-flex align-items-center gap-2" id="menu-title"><svg viewBox="0 0 120 64" width="34" height="18" aria-hidden="true"><use href="#ico-glasses"/></svg>OpticPOS</h5>
       <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
     </div>
     <div class="offcanvas-body p-0"><nav class="nav flex-column nav-menu" aria-label="Main"></nav></div>

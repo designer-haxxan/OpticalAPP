@@ -105,3 +105,13 @@ export function compressImage(file, maxSize = 320, quality = 0.72) {
 export class AppError extends Error {
   constructor(message, code = 'APP') { super(message); this.code = code; }
 }
+
+// WhatsApp click-to-chat link for a Pakistani (or international) phone number, e.g. 0300-1234567 → https://wa.me/923001234567
+export function waLink(phone, text = '') {
+  let n = String(phone ?? '').replace(/[^\d+]/g, '');
+  if (n.startsWith('+')) n = n.slice(1);
+  else if (n.startsWith('00')) n = n.slice(2);
+  else if (n.startsWith('0')) n = '92' + n.slice(1);
+  if (n.length < 10) return '';
+  return `https://wa.me/${n}${text ? '?text=' + encodeURIComponent(text) : ''}`;
+}

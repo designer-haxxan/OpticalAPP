@@ -5,7 +5,9 @@ const KEY = storageKey('settings');
 const LEGACY_KEY = 'pos.settings'; // shared by older builds on the same origin; copied once as a starting point
 
 export const DEFAULT_SETTINGS = {
-  business: { name: 'My Store', address: '', phone: '', taxNo: '', footer: 'Thank you for your purchase!' },
+  business: { name: 'My Optical Store', address: '', phone: '', taxNo: '', footer: 'Thank you! آپ کا شکریہ' },
+  // Optical: default days until delivery, and the pick-up note printed on job-order receipts (English / Urdu).
+  optical: { deliveryDays: 3, orderNote: 'Please bring this slip to collect your glasses.\nبراہِ کرم چشمہ وصول کرتے وقت یہ پرچی ساتھ لائیں۔' },
   currency: 'Rs',
   taxEnabled: false,
   taxRate: 0,
@@ -59,5 +61,5 @@ export function applyTheme() {
   const t = getSettings().theme;
   const dark = t === 'dark' || (t === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
   document.documentElement.setAttribute('data-bs-theme', dark ? 'dark' : 'light');
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#0f1117' : '#f4f5fb');
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#0a1315' : '#f1f7f8');
 }

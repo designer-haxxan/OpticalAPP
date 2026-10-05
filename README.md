@@ -1,19 +1,29 @@
-# SaleAPP POS
+# OpticPOS — Optical Store Manager
 
-Offline-first, mobile-first Point of Sale as a static PWA (no build step).
+Offline-first, mobile-first point of sale built for **optical stores in Pakistan**, as a static PWA (no build step).
 HTML5 · ES modules · jQuery · Bootstrap 5 · Bootstrap Icons · IndexedDB · Service Worker · eposwala login API.
 
-## Features
+## What it does
+
+**Optical workflow**
+
+- **Eye prescriptions (Rx)** per customer: SPH / CYL / AXIS / ADD for the right (OD) and left (OS) eye, PD (distance and near), test date, doctor and purpose. Tap-and-hold `+ / −` steppers in 0.25 steps (with a `±` sign flip), so no minus-key is needed on a phone keypad. Full Rx history, "Sell with this Rx", and a printable Rx slip (English + Urdu heading).
+- **Job orders** for spectacles made to a prescription: attach an Rx, delivery date and lab note to any sale. Status flows **Ordered → In lab → Ready → Delivered**, with due-today / overdue highlighting, advance payment and balance due.
+- **WhatsApp & call buttons**: one tap opens a ready-made **Urdu** WhatsApp message ("your glasses are ready…", with the balance due). Pakistani numbers (`03xx…`) are converted to `92 3xx…` automatically.
+- **Frames, sunglasses, lenses, contact lenses, solutions, accessories & services**: brand, model, colour, size (52-18-140), material/index, gender and other details on every product, searchable and shown in the POS. First run adds the optical categories (Frames, Sunglasses, Lenses, Contact Lenses, Reading Glasses, Lens Solution & Care, Cases & Accessories, Services) and a few services (Eye Test, Lens Fitting, Frame Repair) whose prices you can change.
+- **Eye-test recall**: *Customers → Eye test due (12m+)* lists customers whose last prescription is a year old; the dashboard shows the count.
+- **Job-order receipts**: the printed receipt becomes a *JOB ORDER* slip with the prescription, delivery date and an editable English/Urdu pick-up note (*Settings → Optical store*).
+
+**Store management**
 
 - **POS sales**: search, camera/hardware barcode scan, cart with qty/rate/discount, bill discount, tax, cash/bank/credit/partial payments, change calculation, hold/resume, edit, void, returns, receipt printing. The cart survives page refresh.
-- **Purchases**: suppliers, purchase rate, discount, paid/remaining, edit, void, returns. Can update product cost from the latest purchase.
-- **Products & categories**: SKU, barcode (scan or generate EAN-13), unit, purchase/sale/wholesale prices, opening/min stock, compressed images, services (no stock).
-- **Customers & suppliers**: contact info, opening balance, ledger/statement (print), payments.
-- **Accounts / cash book**: cash, bank/wallet, income, expense, asset, liability accounts. Receipts, payments and transfers use double-entry ledger entries.
+- **Purchases** from frame wholesalers and lens labs, with purchase rate, discount, paid/remaining, edit, void and returns.
+- **Customers & suppliers**: ledger/statement (print), payments, opening balances.
+- **Accounts / cash book**: cash, bank/wallet, income, expense, asset, liability accounts with double-entry receipts, payments and transfers.
 - **Stock**: current stock, low/out-of-stock, stock ledger per product, adjustments (add/remove/set count) with void.
-- **Reports** (print + CSV): daily sales, sales by range, sales/purchase returns, product-wise sales/purchases, customer/supplier ledgers, receivables, payables, cash book, account ledger, daily closing, stock (as of date), profit summary.
-- **Backup & restore**: versioned JSON with checksum, validation preview, replace or merge.
-- **PWA**: installable, works fully offline after the first online login.
+- **Reports** (print + CSV): daily sales, sales by range, returns, product-wise sales/purchases, customer/supplier ledgers, receivables, payables, cash book, account ledger, daily closing, stock (as of date), profit summary.
+- **Backup & restore**: versioned JSON with checksum, validation preview, replace or merge (prescriptions and job orders included).
+- **PWA**: installable, works fully offline after the first online login. Light/dark themes, animated login and "coming into focus" page transitions (reduced-motion is respected).
 
 ## Architecture
 
@@ -26,8 +36,9 @@ js/app.js               Boot, auth gate + session expiry, router (lazy-loaded mo
 js/config.js            Login API base URL, support phone, app/schema/backup versions
 js/core/                utils, settings (LocalStorage), UI helpers, shared views
 js/db/                  IndexedDB wrapper (atomic multi-store transactions) + schema
-js/services/            auth, catalog (in-memory search index), posting engine, backup
-js/modules/             dashboard, pos (sale + purchase), documents, products, stock, parties, vouchers, accounts, settings, backup
+js/services/            auth, catalog (in-memory search index), posting engine, backup, optical (Rx, job orders, first-run setup)
+js/modules/             dashboard, pos (sale + purchase), orders (job orders), documents, products, stock, parties (+ Rx), vouchers, accounts, settings, backup
+js/optical/             Rx steppers, Rx tables, prescription editor and printable Rx slip
 js/reports/             reports
 js/printer/             ESC/POS encoder, receipt builder, Bluetooth/RawBT/browser printing
 js/scanner/             camera scanning + keyboard-wedge scanner detection
@@ -37,10 +48,10 @@ js/scanner/             camera scanning + keyboard-wedge scanner detection
 
 | Where | What |
 |---|---|
-| IndexedDB `disterp_pos` | All business data: products, categories, customers, suppliers, accounts, sales + items, purchases + items, returns, vouchers, **ledger entries**, **stock moves**, adjustments, held sales, audit log, counters |
+| IndexedDB `disterp_pos` | All business data: **prescriptions**, products, categories, customers, suppliers, accounts, sales + items, purchases + items, returns, vouchers, **ledger entries**, **stock moves**, adjustments, held sales, audit log, counters |
 | LocalStorage | Settings (business profile, tax, prefixes, printer, theme), device preferences, `disterp.session` (`{ token, expiresAt, username }`), `disterp.settings`, `disterp.pref.*`, `disterp.draft.*`, and the shared phone id `minipos.deviceId` |
 
-**Shared origin.** Every GitHub Pages site under `designer-haxxan.github.io` is the *same origin*, so all of them share one IndexedDB, LocalStorage and Cache Storage. This app therefore namespaces everything with `CONFIG.APP_ID` (`disterp`): database `disterp_pos`, keys `disterp.*`, caches `disterp-v*`. Its service worker deletes only its own caches, and rebuilds its cache if another app deleted it. The old shared database `saleapp_pos` (also used by AgriSale / pharmaSaleApp) is never modified. *Backup & Restore* offers to import it after showing its record counts. If you copy this app for another shop, **change `APP_ID`** in `js/config.js` and `service-worker.js`.
+**Shared origin.** Every GitHub Pages site under `designer-haxxan.github.io` is the *same origin*, so all of them share one IndexedDB, LocalStorage and Cache Storage. This app therefore namespaces everything with `CONFIG.APP_ID` (`disterp`): database `disterp_pos`, keys `disterp.*`, caches `disterp-v*`. Its service worker deletes only its own caches, and rebuilds its cache if another app deleted it. The old shared database `saleapp_pos` (also used by AgriSale / pharmaSaleApp) is never modified. *Backup & Restore* offers to import it after showing its record counts. The optical edition keeps the original `APP_ID` so shops that already used the app keep their data (the database upgrades itself to v2). If you copy this app for another shop, **change `APP_ID`** in `js/config.js` and `service-worker.js`.
 
 **Data integrity.** Each operation (sale, purchase, return, voucher, adjustment, edit, void) runs in **one IndexedDB transaction**. That transaction writes:
 
